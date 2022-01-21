@@ -7,7 +7,7 @@ import (
 
 func TestToWord(t *testing.T) {
 	str := "boobs"
-	wordRepr := fmt.Sprintf("%v", toWord(str))
+	wordRepr := fmt.Sprintf("%v", toWord(str).chars)
 	if wordRepr != "[1 14 14 1 18]" {
 		t.Fatalf("conversion failed!")
 	}
@@ -23,22 +23,22 @@ func TestAskDaemon(t *testing.T) {
 
 func checkCase(word string, guess string, expAns string, t *testing.T) {
 	dm := Daemon{toWord(word)}
-	ansStr := ansToStr(dm.ask(toWord(guess)))
-	if ansStr != expAns {
-		t.Fatalf("%s -> %s must give %s, gave [%s]", word, guess, expAns, ansStr)
+	ans := dm.ask(toWord(guess))
+	if ans.String() != expAns {
+		t.Fatalf("%s -> %s must give %s, gave [%s]", word, guess, expAns, ans)
 	}
 }
 
 func TestAnsToString(t *testing.T) {
-	ans := [5]byte{2, 0, 1, 1, 2}
-	if ansToStr(ans) != "20112" {
-		t.Fatalf("ans conversion failed for %v, expected %s but got %s", ans, "20112", ansToStr(ans))
+	ans := Ans{[5]byte{2, 0, 1, 1, 2}}
+	if ans.String() != "20112" {
+		t.Fatalf("ans conversion failed for %v, expected %s but got %s", ans, "20112", ans)
 	}
 }
 
 func TestWordToString(t *testing.T) {
 	wrd := toWord("alzer")
-	if wordToStr(wrd) != "alzer" {
+	if wrd.String() != "alzer" {
 		t.Fatalf("word to string failed to convert %v to %s", toWord("alzer"), "alzer")
 	}
 }

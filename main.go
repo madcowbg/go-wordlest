@@ -13,7 +13,12 @@ func readCsvFile(filePath string) [][]string {
 	if err != nil {
 		log.Fatal("Unable to read input file "+filePath, err)
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			log.Fatalf("Can't close file "+filePath, err)
+		}
+	}(f)
 
 	csvReader := csv.NewReader(f)
 	records, err := csvReader.ReadAll()
@@ -24,18 +29,33 @@ func readCsvFile(filePath string) [][]string {
 	return records
 }
 
-func readWordleList(filePath string) []string {
+func readWordleList(filePath string) WordList {
 	loaded_csv := readCsvFile(filePath)
-	wordlist := make([]string, len(loaded_csv))
+	wordlist := make([]Word, len(loaded_csv))
 
 	for i := range loaded_csv {
-		wordlist[i] = loaded_csv[i][0]
+		wordlist[i] = toWord(loaded_csv[i][0])
 	}
 	return wordlist
 }
 
-type Ans = [5]byte  // 0, 1, 2
-type Word = [5]byte // encoded so 'a' is 0
+type Ans struct{ bytes [5]byte } // 0, 1, 2
+func (ans Ans) String() string {
+	var b bytes.Buffer
+	for i := range ans.bytes {
+		b.WriteByte(ans.bytes[i] + '0')
+	}
+	return b.String()
+}
+
+type Word struct{ chars [5]byte } // encoded so 'a' is 0
+func (word Word) String() string {
+	var b bytes.Buffer
+	for i := range word.chars {
+		b.WriteByte(word.chars[i] + 'a')
+	}
+	return b.String()
+}
 
 func toWord(word string) Word {
 	err := checkValidWord(word)
@@ -46,7 +66,7 @@ func toWord(word string) Word {
 	for i := range word {
 		res[i] = word[i] - 'a'
 	}
-	return res
+	return Word{res}
 }
 
 func checkValidWord(word string) error {
@@ -61,47 +81,31 @@ func checkValidWord(word string) error {
 	return nil
 }
 
-func wordToStr(word Word) string {
-	var b bytes.Buffer
-	for i := range word {
-		b.WriteByte(word[i] + 'a')
-	}
-	return b.String()
-}
-
-func ansToStr(ans Ans) string {
-	var b bytes.Buffer
-	for i := range ans {
-		b.WriteByte(ans[i] + '0')
-	}
-	return b.String()
-}
-
 type Daemon struct {
 	correctWord Word
 }
 
 func (dm *Daemon) ask(guess Word) Ans {
 	letters := [26]byte{}
-	for i := range dm.correctWord {
-		letters[byte(dm.correctWord[i])]++
+	for i := range dm.correctWord.chars {
+		letters[byte(dm.correctWord.chars[i])]++
 	}
 	ans := [5]byte{}
 	// mark all correct places and guesses
-	for i := range guess {
-		if guess[i] == dm.correctWord[i] {
+	for i := range guess.chars {
+		if guess.chars[i] == dm.correctWord.chars[i] {
 			ans[i] = 2
-			letters[byte(guess[i])]--
+			letters[byte(guess.chars[i])]--
 		}
 	}
 	// mark all guesses in incorrect places
-	for i := range guess {
-		if ans[i] == 0 && letters[byte(guess[i])] > 0 {
+	for i := range guess.chars {
+		if ans[i] == 0 && letters[byte(guess.chars[i])] > 0 {
 			ans[i] = 1
-			letters[byte(guess[i])]--
+			letters[byte(guess.chars[i])]--
 		}
 	}
-	return ans
+	return Ans{ans}
 }
 
 func (dm *Daemon) playInteractively() {
@@ -123,14 +127,33 @@ func (dm *Daemon) playInteractively() {
 
 		guessWrd := toWord(guess)
 		ans := dm.ask(guessWrd)
-		if ansToStr(ans) == "22222" {
+		if ans.String() == "22222" {
 			fmt.Printf("Word guessed!\n")
 			return
 		} else {
-			fmt.Printf("Daemon says %s.\n", ansToStr(ans))
+			fmt.Printf("Daemon says %s.\n", ans)
 		}
 		rnd += 1
 	}
+}
+
+type WordList []Word
+
+func splitAfterGuess(guess Word, wordlist WordList) map[Ans]WordList {
+	dm := Daemon{guess}
+	result := make(map[Ans]WordList)
+	for i := range wordlist {
+		word := wordlist[i]
+		ans := dm.ask(word)
+
+		existantList, found := result[ans]
+		if !found {
+			existantList = []Word{}
+		}
+
+		result[ans] = append(existantList, word)
+	}
+	return result
 }
 
 func main() {
@@ -138,9 +161,10 @@ func main() {
 
 	log.Printf("word list count: %d\n", len(wordlist))
 
-	dm := Daemon{toWord("atone")}
-	dm.playInteractively()
+	//dm := Daemon{toWord("atone")}
+	//dm.playInteractively()
 
+	split := splitAfterGuess(wordlist[0], wordlist)
+	log.Printf("split list by %s:\n%v\n", wordlist[0], split)
 	log.Println("Done!")
-
 }
