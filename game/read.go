@@ -34,7 +34,7 @@ func ReadWordleList(filePath string) WordList {
 	wordlist := make([]Word, len(loaded_csv))
 
 	for i := range loaded_csv {
-		wordlist[i] = toWord(loaded_csv[i][0])
+		wordlist[i] = ToWord(loaded_csv[i][0])
 	}
 	return wordlist
 }

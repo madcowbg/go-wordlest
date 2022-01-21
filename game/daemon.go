@@ -49,7 +49,7 @@ func (dm *Daemon) playInteractively() {
 			continue
 		}
 
-		guessWrd := toWord(guess)
+		guessWrd := ToWord(guess)
 		ans := dm.Ask(guessWrd)
 		if ans.String() == "22222" {
 			fmt.Printf("Word guessed!\n")

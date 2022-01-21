@@ -15,7 +15,7 @@ func (word Word) String() string {
 	return b.String()
 }
 
-func toWord(word string) Word {
+func ToWord(word string) Word {
 	err := checkValidWord(word)
 	if err != nil {
 		log.Fatal(err)

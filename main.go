@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-wordlyest/game"
 	"log"
+	"math"
 )
 
 func splitAfterGuess(guess game.Word, wordlist game.WordList) map[game.Ans]game.WordList {
@@ -59,12 +60,72 @@ func play(dm *game.Daemon, player Player) (int, History) {
 	}
 }
 
-func naivePlayer(list game.WordList) Player {
+func NaivePlayer(list game.WordList) Player {
 	i := 0
 	return func(history History) game.Word {
 		defer func() { i++ }()
 		return list[i]
 	}
+}
+
+func NaiveNeedfulPlayer(list game.WordList) Player {
+	return func(history History) game.Word {
+		current := list
+		for _, round := range history {
+			current = filter(current, round)
+		}
+		return current[0]
+	}
+}
+
+func GreedyNeedfulPlayer(list game.WordList, firstGuess game.Word) Player {
+	return func(history History) game.Word {
+		if len(history) == 0 {
+			return firstGuess
+		}
+
+		currentPossibilities := filterHistory(list, history)
+
+		maxSizeAfterGuess := make(map[game.Word]int)
+		for _, guess := range currentPossibilities {
+			maxSizeAfterGuess[guess] = 0
+			for _, possibilitiesAfterGuess := range splitAfterGuess(guess, currentPossibilities) {
+				if maxSizeAfterGuess[guess] < len(possibilitiesAfterGuess) {
+					maxSizeAfterGuess[guess] = len(possibilitiesAfterGuess)
+				}
+			}
+		}
+
+		var minMaxWrd game.Word
+		var minMaxSize = math.MaxInt
+		for wrd, size := range maxSizeAfterGuess {
+			if size < minMaxSize {
+				minMaxSize = size
+				minMaxWrd = wrd
+			}
+		}
+
+		return minMaxWrd
+	}
+}
+
+func filterHistory(list game.WordList, history History) game.WordList {
+	current := list
+	for _, round := range history {
+		current = filter(current, round)
+	}
+	return current
+}
+
+func filter(list game.WordList, round Round) game.WordList {
+	result := game.WordList{}
+	for _, word := range list {
+		dm := game.Daemon{CorrectWord: word}
+		if dm.Ask(round.guess).String() == round.ans.String() {
+			result = append(result, word)
+		}
+	}
+	return result
 }
 
 func main() {
@@ -77,6 +138,17 @@ func main() {
 
 	//split := splitAfterGuess(wordlist[0], wordlist)
 	//log.Printf("split list by %s:\n%v\n", wordlist[0], split)
+
+	dm := &game.Daemon{CorrectWord: wordlist[10]}
+	length, history := play(dm, GreedyNeedfulPlayer(wordlist, game.ToWord("atone")))
+
+	log.Printf("Naive player guesses it in %d rounds by:\n%v.\n", length, history)
+
+	for _, wrd := range wordlist {
+		dm := &game.Daemon{CorrectWord: wrd}
+		numRounds, _ := play(dm, GreedyNeedfulPlayer(wordlist, game.ToWord("atone")))
+		log.Printf("%s\t%d\n", wrd, numRounds)
+	}
 
 	log.Println("Done!")
 }
