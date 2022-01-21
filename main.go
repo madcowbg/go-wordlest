@@ -44,52 +44,47 @@ func (h History) String() string {
 	return buffer.String()
 }
 
-type Player func(history History) game.Word
+type Player func(history History, allowed game.WordList) game.Word
 
-func play(dm *game.Daemon, player Player) (int, History) {
+func play(allowedWords game.WordList, dm *game.Daemon, player Player) (int, History) {
 	history := History{}
-	round := 1
+	currentlyAllowed := allowedWords
+	roundNumber := 1
 	for {
-		guess := player(history)
+		guess := player(history, currentlyAllowed)
 		ans := dm.Ask(guess)
-		history = append(history, Round{guess, ans})
+		round := Round{guess, ans}
+		history = append(history, round)
 		if ans.String() == "22222" {
-			return round, history
+			return roundNumber, history
 		}
-		round++
+		currentlyAllowed = filter(currentlyAllowed, round)
+		roundNumber++
 	}
 }
 
 func NaivePlayer(list game.WordList) Player {
 	i := 0
-	return func(history History) game.Word {
+	return func(history History, _ game.WordList) game.Word {
 		defer func() { i++ }()
 		return list[i]
 	}
 }
 
-func NaiveNeedfulPlayer(list game.WordList) Player {
-	return func(history History) game.Word {
-		current := list
-		for _, round := range history {
-			current = filter(current, round)
-		}
-		return current[0]
-	}
+func NaiveNeedfulPlayer(_ History, currentlyAllowed game.WordList) game.Word {
+	return currentlyAllowed[0]
 }
 
-func GreedyNeedfulPlayer(list game.WordList, firstGuess game.Word) Player {
-	return func(history History) game.Word {
+func GreedyNeedfulPlayer(_ game.WordList, firstGuess game.Word) Player {
+	return func(history History, currentlyAllowed game.WordList) game.Word {
 		if len(history) == 0 {
 			return firstGuess
 		}
 
-		currentPossibilities := filterHistory(list, history)
-
 		maxSizeAfterGuess := make(map[game.Word]int)
-		for _, guess := range currentPossibilities {
+		for _, guess := range currentlyAllowed {
 			maxSizeAfterGuess[guess] = 0
-			for _, possibilitiesAfterGuess := range splitAfterGuess(guess, currentPossibilities) {
+			for _, possibilitiesAfterGuess := range splitAfterGuess(guess, currentlyAllowed) {
 				if maxSizeAfterGuess[guess] < len(possibilitiesAfterGuess) {
 					maxSizeAfterGuess[guess] = len(possibilitiesAfterGuess)
 				}
@@ -109,19 +104,11 @@ func GreedyNeedfulPlayer(list game.WordList, firstGuess game.Word) Player {
 	}
 }
 
-func filterHistory(list game.WordList, history History) game.WordList {
-	current := list
-	for _, round := range history {
-		current = filter(current, round)
-	}
-	return current
-}
-
 func filter(list game.WordList, round Round) game.WordList {
 	result := game.WordList{}
 	for _, word := range list {
 		dm := game.Daemon{CorrectWord: word}
-		if dm.Ask(round.guess).String() == round.ans.String() {
+		if dm.Ask(round.guess).Equals(round.ans) {
 			result = append(result, word)
 		}
 	}
@@ -140,15 +127,9 @@ func main() {
 	//log.Printf("split list by %s:\n%v\n", wordlist[0], split)
 
 	dm := &game.Daemon{CorrectWord: wordlist[10]}
-	length, history := play(dm, GreedyNeedfulPlayer(wordlist, game.ToWord("atone")))
+	length, history := play(wordlist, dm, GreedyNeedfulPlayer(wordlist, game.ToWord("atone")))
 
 	log.Printf("Naive player guesses it in %d rounds by:\n%v.\n", length, history)
-
-	for _, wrd := range wordlist {
-		dm := &game.Daemon{CorrectWord: wrd}
-		numRounds, _ := play(dm, GreedyNeedfulPlayer(wordlist, game.ToWord("atone")))
-		log.Printf("%s\t%d\n", wrd, numRounds)
-	}
 
 	log.Println("Done!")
 }

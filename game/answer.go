@@ -10,3 +10,12 @@ func (ans Ans) String() string {
 	}
 	return b.String()
 }
+
+func (ans Ans) Equals(other Ans) bool {
+	for i, v := range ans.bytes {
+		if other.bytes[i] != v {
+			return false
+		}
+	}
+	return true
+}
