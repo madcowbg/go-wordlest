@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/csv"
+	"fmt"
 	"log"
 	"os"
 )
@@ -36,43 +37,28 @@ func readWordleList(filePath string) []string {
 type Ans = [5]byte  // 0, 1, 2
 type Word = [5]byte // encoded so 'a' is 0
 
-func calcAnswer(word Word) func(guess Word) Ans {
-	return func(guess Word) Ans {
-		letters := [26]byte{}
-		for i := range word {
-			letters[byte(word[i])]++
-		}
-		ans := [5]byte{}
-		// mark all correct places and guesses
-		for i := range guess {
-			if guess[i] == word[i] {
-				ans[i] = 2
-				letters[byte(guess[i])]--
-			}
-		}
-		// mark all guesses in incorrect places
-		for i := range guess {
-			if ans[i] == 0 && letters[byte(guess[i])] > 0 {
-				ans[i] = 1
-				letters[byte(guess[i])]--
-			}
-		}
-		return ans
-	}
-}
-
 func toWord(word string) Word {
-	res := [5]byte{}
-	if len(word) != 5 {
-		log.Fatalf("word must be 5 letters! Got [%s] which is [%d]", word, len(word))
+	err := checkValidWord(word)
+	if err != nil {
+		log.Fatal(err)
 	}
+	res := [5]byte{}
 	for i := range word {
-		if !('a' <= word[i] && word[i] <= 'z') {
-			log.Fatalf("using forbidden character, must be 'a'...'z', got [%d]", word[i])
-		}
 		res[i] = word[i] - 'a'
 	}
 	return res
+}
+
+func checkValidWord(word string) error {
+	if len(word) != 5 {
+		return fmt.Errorf("word must be 5 letters! Got [%s] which is [%d]", word, len(word))
+	}
+	for i := range word {
+		if !('a' <= word[i] && word[i] <= 'z') {
+			return fmt.Errorf("using forbidden character, must be 'a'...'z', got [%d]", word[i])
+		}
+	}
+	return nil
 }
 
 func wordToStr(word Word) string {
@@ -91,9 +77,70 @@ func ansToStr(ans Ans) string {
 	return b.String()
 }
 
+type Daemon struct {
+	correctWord Word
+}
+
+func (dm *Daemon) ask(guess Word) Ans {
+	letters := [26]byte{}
+	for i := range dm.correctWord {
+		letters[byte(dm.correctWord[i])]++
+	}
+	ans := [5]byte{}
+	// mark all correct places and guesses
+	for i := range guess {
+		if guess[i] == dm.correctWord[i] {
+			ans[i] = 2
+			letters[byte(guess[i])]--
+		}
+	}
+	// mark all guesses in incorrect places
+	for i := range guess {
+		if ans[i] == 0 && letters[byte(guess[i])] > 0 {
+			ans[i] = 1
+			letters[byte(guess[i])]--
+		}
+	}
+	return ans
+}
+
+func (dm *Daemon) playInteractively() {
+	fmt.Println("Starting interactive game...")
+	rnd := 1
+	for {
+		fmt.Printf("Round %d: ", rnd)
+		var guess string
+		_, err := fmt.Scanln(&guess)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = checkValidWord(guess)
+		if err != nil {
+			fmt.Printf("Invalid word: [%s]\n", err)
+			continue
+		}
+
+		guessWrd := toWord(guess)
+		ans := dm.ask(guessWrd)
+		if ansToStr(ans) == "22222" {
+			fmt.Printf("Word guessed!\n")
+			return
+		} else {
+			fmt.Printf("Daemon says %s.\n", ansToStr(ans))
+		}
+		rnd += 1
+	}
+}
+
 func main() {
 	wordlist := readWordleList("data/wordle-answers-alphabetical.txt")
 
 	log.Printf("word list count: %d\n", len(wordlist))
+
+	dm := Daemon{toWord("atone")}
+	dm.playInteractively()
+
 	log.Println("Done!")
+
 }

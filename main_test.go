@@ -13,7 +13,7 @@ func TestToWord(t *testing.T) {
 	}
 }
 
-func TestCheckAnswer(t *testing.T) {
+func TestAskDaemon(t *testing.T) {
 	checkCase("boobs", "boobs", "22222", t)
 	checkCase("boobs", "potty", "02000", t)
 	checkCase("boobs", "babes", "20102", t)
@@ -22,7 +22,8 @@ func TestCheckAnswer(t *testing.T) {
 }
 
 func checkCase(word string, guess string, expAns string, t *testing.T) {
-	ansStr := ansToStr(calcAnswer(toWord(word))(toWord(guess)))
+	dm := Daemon{toWord(word)}
+	ansStr := ansToStr(dm.ask(toWord(guess)))
 	if ansStr != expAns {
 		t.Fatalf("%s -> %s must give %s, gave [%s]", word, guess, expAns, ansStr)
 	}
