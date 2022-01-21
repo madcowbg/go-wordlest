@@ -116,11 +116,15 @@ func filter(list game.WordList, round Round) game.WordList {
 }
 
 func MinMaxPlayer(_ game.WordList) Player {
-	var calculator func(history History, currentlyAllowed game.WordList) (game.Word, int)
-	calculator = func(history History, currentlyAllowed game.WordList) (game.Word, int) {
+	var calculator func(history History, currentlyAllowed game.WordList, currentBestDepth int) (game.Word, int)
+	calculator = func(history History, currentlyAllowed game.WordList, currentBestDepth int) (game.Word, int) {
 		if len(currentlyAllowed) == 1 {
 			// base case - we are here!
-			return currentlyAllowed[0], 1
+			return currentlyAllowed[0], len(history) + 1
+		}
+
+		if len(history) >= currentBestDepth {
+			return currentlyAllowed[0], math.MaxInt // prune case - we can't beat it, so may as well skip it and declare undesirable
 		}
 
 		var minWorstCaseGuess game.Word
@@ -129,20 +133,30 @@ func MinMaxPlayer(_ game.WordList) Player {
 			afterGuess := splitAfterGuess(guess, currentlyAllowed)
 			maxDepth := 0
 			for ans, afterGuessAllowed := range afterGuess {
-				_, depthInThatHistory := calculator(append(history, Round{Guess: guess, Ans: ans}), afterGuessAllowed)
+				_, depthInThatHistory := calculator(
+					append(history, Round{Guess: guess, Ans: ans}),
+					afterGuessAllowed,
+					currentBestDepth)
 				if maxDepth < depthInThatHistory {
 					maxDepth = depthInThatHistory
+				}
+				if maxDepth > currentBestDepth {
+					break // prune when any other ans will pull us further into undesirable paths...
 				}
 			}
 			if minWorstCaseDepth > maxDepth {
 				minWorstCaseDepth = maxDepth
 				minWorstCaseGuess = guess
 			}
+			if currentBestDepth > minWorstCaseDepth {
+				currentBestDepth = minWorstCaseDepth
+			}
 		}
 		return minWorstCaseGuess, minWorstCaseDepth
 	}
 	return func(history History, currentlyAllowed game.WordList) game.Word {
-		guess, _ := calculator(history, currentlyAllowed)
+		guess, worstCaseDepth := calculator(history, currentlyAllowed, math.MaxInt)
+		fmt.Printf("Guess: %s, Max Depth: %d\n", guess, worstCaseDepth)
 		return guess
 	}
 }
