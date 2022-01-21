@@ -26,8 +26,8 @@ func splitAfterGuess(guess game.Word, wordlist game.WordList) map[game.Ans]game.
 }
 
 type Round struct {
-	guess game.Word
-	ans   game.Ans
+	Guess game.Word
+	Ans   game.Ans
 }
 type History []Round
 
@@ -35,7 +35,7 @@ func (h History) String() string {
 	var buffer bytes.Buffer
 	buffer.WriteString("{")
 	for i := range h {
-		buffer.WriteString(fmt.Sprintf("[Round %d: Guess %s Ans: %s]", i+1, h[i].guess, h[i].ans))
+		buffer.WriteString(fmt.Sprintf("[Round %d: Guess %s Ans: %s]", i+1, h[i].Guess, h[i].Ans))
 		if i < len(h) {
 			buffer.WriteString(", ")
 		}
@@ -108,11 +108,43 @@ func filter(list game.WordList, round Round) game.WordList {
 	result := game.WordList{}
 	for _, word := range list {
 		dm := game.Daemon{CorrectWord: word}
-		if dm.Ask(round.guess).Equals(round.ans) {
+		if dm.Ask(round.Guess).Equals(round.Ans) {
 			result = append(result, word)
 		}
 	}
 	return result
+}
+
+func MinMaxPlayer(_ game.WordList) Player {
+	var calculator func(history History, currentlyAllowed game.WordList) (game.Word, int)
+	calculator = func(history History, currentlyAllowed game.WordList) (game.Word, int) {
+		if len(currentlyAllowed) == 1 {
+			// base case - we are here!
+			return currentlyAllowed[0], 1
+		}
+
+		var minWorstCaseGuess game.Word
+		var minWorstCaseDepth = math.MaxInt
+		for _, guess := range currentlyAllowed {
+			afterGuess := splitAfterGuess(guess, currentlyAllowed)
+			maxDepth := 0
+			for ans, afterGuessAllowed := range afterGuess {
+				_, depthInThatHistory := calculator(append(history, Round{Guess: guess, Ans: ans}), afterGuessAllowed)
+				if maxDepth < depthInThatHistory {
+					maxDepth = depthInThatHistory
+				}
+			}
+			if minWorstCaseDepth > maxDepth {
+				minWorstCaseDepth = maxDepth
+				minWorstCaseGuess = guess
+			}
+		}
+		return minWorstCaseGuess, minWorstCaseDepth
+	}
+	return func(history History, currentlyAllowed game.WordList) game.Word {
+		guess, _ := calculator(history, currentlyAllowed)
+		return guess
+	}
 }
 
 func main() {
