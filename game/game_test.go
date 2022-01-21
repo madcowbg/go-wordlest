@@ -1,15 +1,13 @@
 package game
 
 import (
-	"fmt"
 	"testing"
 )
 
 func TestToWord(t *testing.T) {
 	str := "boobs"
-	wordRepr := fmt.Sprintf("%v", ToWord(str).chars)
-	if wordRepr != "[1 14 14 1 18]" {
-		t.Fatalf("conversion failed!")
+	if ToWord(str).value != 1+26*(14+26*(14+26*(1+26*18))) {
+		t.Fatalf("conversion failed! %d != %d", ToWord(str).value, 1+26*(14+26*(14+26*(1+26*18))))
 	}
 }
 
@@ -30,7 +28,7 @@ func checkCase(word string, guess string, expAns string, t *testing.T) {
 }
 
 func TestAnsToString(t *testing.T) {
-	ans := Ans{[5]byte{2, 0, 1, 1, 2}}
+	ans := FromBytes([5]byte{2, 0, 1, 1, 2})
 	if ans.String() != "20112" {
 		t.Fatalf("ans conversion failed for %v, expected %s but got %s", ans, "20112", ans)
 	}

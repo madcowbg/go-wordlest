@@ -6,11 +6,13 @@ import (
 	"log"
 )
 
-type Word struct{ chars [5]byte } // encoded so 'a' is 0
+type Word struct{ value int } // encoded so 'a' is 0
 func (word Word) String() string {
 	var b bytes.Buffer
-	for i := range word.chars {
-		b.WriteByte(word.chars[i] + 'a')
+	val := word.value
+	for i := 0; i < 5; i++ {
+		b.WriteByte(byte(val%26) + 'a')
+		val /= 26
 	}
 	return b.String()
 }
@@ -20,11 +22,11 @@ func ToWord(word string) Word {
 	if err != nil {
 		log.Fatal(err)
 	}
-	res := [5]byte{}
+	value := 0
 	for i := range word {
-		res[i] = word[i] - 'a'
+		value = value*26 + int(word[4-i]-'a')
 	}
-	return Word{res}
+	return Word{value}
 }
 
 func checkValidWord(word string) error {
