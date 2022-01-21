@@ -1,44 +1,18 @@
 package main
 
 import (
-	"fmt"
+	"go-wordlyest/game"
+	"log"
 	"testing"
 )
 
-func TestToWord(t *testing.T) {
-	str := "boobs"
-	wordRepr := fmt.Sprintf("%v", toWord(str).chars)
-	if wordRepr != "[1 14 14 1 18]" {
-		t.Fatalf("conversion failed!")
-	}
-}
+var wordlist = game.ReadWordleList("data/wordle-answers-alphabetical.txt")
 
-func TestAskDaemon(t *testing.T) {
-	checkCase("boobs", "boobs", "22222", t)
-	checkCase("boobs", "potty", "02000", t)
-	checkCase("boobs", "babes", "20102", t)
-	checkCase("abbab", "baaaa", "11020", t)
-	checkCase("baaaa", "abbab", "11020", t)
-}
+func TestNaivePlayer(t *testing.T) {
+	dm := &game.Daemon{CorrectWord: wordlist[10]}
+	length, history := play(dm, naivePlayer(wordlist))
 
-func checkCase(word string, guess string, expAns string, t *testing.T) {
-	dm := Daemon{toWord(word)}
-	ans := dm.ask(toWord(guess))
-	if ans.String() != expAns {
-		t.Fatalf("%s -> %s must give %s, gave [%s]", word, guess, expAns, ans)
-	}
-}
-
-func TestAnsToString(t *testing.T) {
-	ans := Ans{[5]byte{2, 0, 1, 1, 2}}
-	if ans.String() != "20112" {
-		t.Fatalf("ans conversion failed for %v, expected %s but got %s", ans, "20112", ans)
-	}
-}
-
-func TestWordToString(t *testing.T) {
-	wrd := toWord("alzer")
-	if wrd.String() != "alzer" {
-		t.Fatalf("word to string failed to convert %v to %s", toWord("alzer"), "alzer")
+	if length != 11 {
+		log.Fatalf("Naive player should have guesses it in %d but did in %d rounds by:\n%v.\n", 11, length, history)
 	}
 }
