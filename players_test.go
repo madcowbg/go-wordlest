@@ -15,11 +15,11 @@ func TestGreedyNeedfulPlayer(t *testing.T) {
 }
 
 func TestMinMaxPlayerHACK(t *testing.T) {
-	reducedWordlist := wordlist[0:100]
+	reducedWordlist := wordlist
 
 	for _, wrd := range reducedWordlist {
 		dm := &game.Daemon{CorrectWord: wrd}
-		numRounds, _ := play(reducedWordlist, dm, MinMaxPlayer(reducedWordlist))
+		numRounds, _ := play(reducedWordlist, dm, FastFirstHand(game.ToWord("atone"), MinMaxPlayer(reducedWordlist, false)))
 		log.Printf("%s\t%d\n", wrd, numRounds)
 	}
 }
