@@ -9,11 +9,11 @@ import (
 )
 
 func splitAfterGuess(guess game.Word, wordlist game.WordList) map[game.Ans]game.WordList {
-	dm := game.Daemon{CorrectWord: guess}
 	result := make(map[game.Ans]game.WordList)
 	for i := range wordlist {
 		word := wordlist[i]
-		ans := dm.Ask(word)
+		dm := game.Daemon{CorrectWord: word}
+		ans := dm.Ask(guess)
 
 		existantList, found := result[ans]
 		if !found {
@@ -116,43 +116,45 @@ func filter(list game.WordList, round Round) game.WordList {
 }
 
 func MinMaxPlayer(_ game.WordList, verbose bool) Player {
-	var calculator func(history History, currentlyAllowed game.WordList, currentBestDepth int) (game.Word, int)
-	calculator = func(history History, currentlyAllowed game.WordList, currentBestDepth int) (game.Word, int) {
+	var calculator func(depth int, currentlyAllowed game.WordList, currentBestDepth int, currentBestDepthChan chan int) (game.Word, int)
+	calculator = func(depth int, currentlyAllowed game.WordList, currentBestDepth int, currentBestDepthChan chan int) (game.Word, int) {
 		if len(currentlyAllowed) == 1 {
 			// base case - we are here!
-			return currentlyAllowed[0], len(history) + 1
+			return currentlyAllowed[0], depth + 1
 		}
 
-		if len(history) >= currentBestDepth {
+		if depth >= currentBestDepth {
 			return currentlyAllowed[0], math.MaxInt // prune case - we can't beat it, so may as well skip it and declare undesirable
 		}
 
 		var minWorstCaseGuess game.Word
 		var minWorstCaseDepth = math.MaxInt
+		maxDepth := make(map[game.Word]int)
 		for _, guess := range currentlyAllowed {
-			if verbose && len(history) == 0 {
+			if verbose && depth == 0 {
 				fmt.Printf("Trying %s...\n", guess)
 			}
 			afterGuess := splitAfterGuess(guess, currentlyAllowed)
-			maxDepth := 0
-			for ans, afterGuessAllowed := range afterGuess {
+			maxDepth[guess] = 0
+			for _, afterGuessAllowed := range afterGuess {
 				_, depthInThatHistory := calculator(
-					append(history, Round{Guess: guess, Ans: ans}),
+					depth+1,
 					afterGuessAllowed,
-					currentBestDepth)
-				if maxDepth < depthInThatHistory {
-					maxDepth = depthInThatHistory
+					currentBestDepth,
+					currentBestDepthChan)
+				if maxDepth[guess] < depthInThatHistory {
+					maxDepth[guess] = depthInThatHistory
 				}
-				if maxDepth > currentBestDepth {
-					break // prune when any other ans will pull us further into undesirable paths...
+				if maxDepth[guess] >= currentBestDepth {
+					maxDepth[guess] = math.MaxInt // prune when any other ans will pull us further into undesirable paths...
+					break
 				}
 			}
-			if verbose && len(history) == 0 {
-				fmt.Printf("Alternative checked %s, determined improvement in minmaxmax depth %d\n", guess, maxDepth)
+			if verbose && depth <= 0 {
+				fmt.Printf("Alternative checked %s, determined improvement in minmaxmax depth %d\n", guess, maxDepth[guess])
 			}
-
-			if minWorstCaseDepth > maxDepth {
-				minWorstCaseDepth = maxDepth
+			if minWorstCaseDepth > maxDepth[guess] {
+				minWorstCaseDepth = maxDepth[guess]
 				minWorstCaseGuess = guess
 			}
 			if currentBestDepth > minWorstCaseDepth {
@@ -162,7 +164,9 @@ func MinMaxPlayer(_ game.WordList, verbose bool) Player {
 		return minWorstCaseGuess, minWorstCaseDepth
 	}
 	return func(history History, currentlyAllowed game.WordList) game.Word {
-		guess, worstCaseDepth := calculator(history, currentlyAllowed, math.MaxInt)
+		currentBestDepthChan := make(chan int)
+
+		guess, worstCaseDepth := calculator(len(history), currentlyAllowed, math.MaxInt, currentBestDepthChan)
 		if verbose {
 			fmt.Printf("Guess: %s, Max Depth: %d\n", guess, worstCaseDepth)
 		}
@@ -181,7 +185,8 @@ func FastFirstHand(firstGuess game.Word, fallback Player) Player {
 }
 
 func main() {
-	wordlist := game.ReadWordleList("data/wordle-answers-alphabetical.txt")
+	//wordlist := game.ReadWordleList("data/wordle-answers-alphabetical.txt")
+	wordlist := game.ReadWordleList("data/wordle-answers-split-power.txt")
 
 	log.Printf("word list count: %d\n", len(wordlist))
 
@@ -195,6 +200,17 @@ func main() {
 	//length, history := play(wordlist, dm, GreedyNeedfulPlayer(wordlist, game.ToWord("atone")))
 	//
 	//log.Printf("Naive player guesses it in %d rounds by:\n%v.\n", length, history)
+
+	//maxSizeAfterGuess := make(map[game.Word]int)
+	//for _, guess := range wordlist {
+	//	maxSizeAfterGuess[guess] = 0
+	//	for _, possibilitiesAfterGuess := range splitAfterGuess(guess, wordlist) {
+	//		if maxSizeAfterGuess[guess] < len(possibilitiesAfterGuess) {
+	//			maxSizeAfterGuess[guess] = len(possibilitiesAfterGuess)
+	//		}
+	//	}
+	//	fmt.Printf("%s\t%d\n", guess, maxSizeAfterGuess[guess])
+	//}
 
 	reducedWordlist := wordlist
 	for _, wrd := range reducedWordlist {
