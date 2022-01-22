@@ -115,7 +115,7 @@ func filter(list game.WordList, round Round) game.WordList {
 	return result
 }
 
-func MinMaxPlayer(_ game.WordList, verbose bool) Player {
+func MinMaxPlayer(verbose bool) Player {
 	var calculator func(depth int, currentlyAllowed game.WordList, currentBestDepth int, currentBestDepthChan chan int) (game.Word, int)
 	calculator = func(depth int, currentlyAllowed game.WordList, currentBestDepth int, currentBestDepthChan chan int) (game.Word, int) {
 		if len(currentlyAllowed) == 1 {
@@ -185,8 +185,7 @@ func FastFirstHand(firstGuess game.Word, fallback Player) Player {
 }
 
 func main() {
-	//wordlist := game.ReadWordleList("data/wordle-answers-alphabetical.txt")
-	wordlist := game.ReadWordleList("data/wordle-answers-split-power.txt")
+	wordlist := game.ReadWordleList("data/wordle-answers-alphabetical.txt")
 
 	log.Printf("word list count: %d\n", len(wordlist))
 
@@ -215,7 +214,7 @@ func main() {
 	reducedWordlist := wordlist
 	for _, wrd := range reducedWordlist {
 		dm := &game.Daemon{CorrectWord: wrd}
-		numRounds, _ := play(reducedWordlist, dm, MinMaxPlayer(reducedWordlist, true))
+		numRounds, _ := play(reducedWordlist, dm, MinMaxPlayer(true))
 		log.Printf("%s\t%d\n", wrd, numRounds)
 		break
 	}
